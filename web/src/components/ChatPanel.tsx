@@ -1,4 +1,20 @@
 import { useEffect, useRef } from 'react';
+
+function formatDateDivider(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.floor((today.getTime() - msgDate.getTime()) / 86400000);
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  return date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+function getDateKey(timestamp: string): string {
+  return new Date(timestamp).toDateString();
+}
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import { useMessages } from '../hooks/useMessages';
@@ -39,9 +55,19 @@ export default function ChatPanel({ conversation, onSend, typing, onAddMessage }
           </button>
         )}
         {loading && <div className="chat-loading">Loading...</div>}
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
-        ))}
+        {messages.map((msg, i) => {
+          const showDivider = i === 0 || getDateKey(msg.timestamp) !== getDateKey(messages[i - 1].timestamp);
+          return (
+            <div key={msg.id}>
+              {showDivider && (
+                <div className="date-divider">
+                  <span>{formatDateDivider(msg.timestamp)}</span>
+                </div>
+              )}
+              <MessageBubble message={msg} />
+            </div>
+          );
+        })}
         {typing && (
           <div className="typing-indicator">Thinking...</div>
         )}
