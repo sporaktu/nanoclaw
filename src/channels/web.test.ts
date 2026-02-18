@@ -38,7 +38,7 @@ describe('WebChannel', () => {
 
     const res = await fetch(`http://localhost:${port}/api/conversations`);
     expect(res.ok).toBe(true);
-    const data = await res.json();
+    const data: any = await res.json();
     expect(Array.isArray(data)).toBe(true);
   });
 
@@ -92,7 +92,7 @@ describe('WebChannel', () => {
 
     const res = await fetch(`http://localhost:${port}/api/conversations/group%40g.us/messages`);
     expect(res.ok).toBe(true);
-    const data = await res.json();
+    const data: any = await res.json();
     expect(data.messages).toHaveLength(1);
     expect(data.messages[0].content).toBe('test message');
   });
