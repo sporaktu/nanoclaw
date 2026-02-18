@@ -13,6 +13,7 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "cli": "node dist/cli.js",
+    "build:web": "cd web && npm run build",
     "test": "vitest run",
     "test:watch": "vitest"
   },

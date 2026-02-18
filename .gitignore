@@ -30,3 +30,7 @@ groups/global/*
 .vscode/
 
 agents-sdk-docs
+
+# Web frontend
+web/dist/
+web/node_modules/
