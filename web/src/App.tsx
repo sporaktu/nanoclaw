@@ -1,61 +1,72 @@
-import { useState, useCallback, useRef } from 'react';
-import Sidebar from './components/Sidebar';
-import ChatPanel from './components/ChatPanel';
-import { useConversations } from './hooks/useConversations';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import NavBar, { type Tab } from './components/NavBar';
+import ChatsTab from './components/ChatsTab';
+import TasksTab from './components/TasksTab';
+import SkillsTab from './components/SkillsTab';
+import SystemTab from './components/SystemTab';
 import { useWebSocket } from './hooks/useWebSocket';
 import type { Message, WsMessage } from './types';
 import './App.css';
 
+const VALID_TABS: Tab[] = ['chats', 'tasks', 'skills', 'system'];
+
+function getInitialTab(): Tab {
+  const hash = window.location.hash.replace('#', '') as Tab;
+  return VALID_TABS.includes(hash) ? hash : 'chats';
+}
+
 export default function App() {
-  const { conversations, refresh } = useConversations();
-  const [selectedJid, setSelectedJid] = useState<string | null>(null);
-  const [typingJids, setTypingJids] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);
   const addMessageRef = useRef<((msg: Message) => void) | null>(null);
+  const refreshChatsRef = useRef<(() => void) | null>(null);
+  const refreshTasksRef = useRef<(() => void) | null>(null);
+
+  const handleTabChange = useCallback((tab: Tab) => {
+    setActiveTab(tab);
+    window.location.hash = tab;
+  }, []);
+
+  // Browser back/forward
+  useEffect(() => {
+    const onHashChange = () => {
+      const hash = window.location.hash.replace('#', '') as Tab;
+      if (VALID_TABS.includes(hash)) setActiveTab(hash);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   const handleWsMessage = useCallback((msg: WsMessage) => {
     if (msg.type === 'newMessage' && msg.message) {
       addMessageRef.current?.(msg.message);
-      refresh();
+      refreshChatsRef.current?.();
     }
-    if (msg.type === 'typing' && msg.jid !== undefined) {
-      setTypingJids((prev) => {
-        const next = new Set(prev);
-        if (msg.value) next.add(msg.jid!);
-        else next.delete(msg.jid!);
-        return next;
-      });
+    if (msg.type === 'taskUpdate' || msg.type === 'taskRun') {
+      refreshTasksRef.current?.();
     }
-  }, [refresh]);
+    if (msg.type === 'chatUpdate') {
+      refreshChatsRef.current?.();
+    }
+  }, []);
 
   const { send, connected } = useWebSocket(handleWsMessage);
 
-  const handleSend = useCallback((jid: string, content: string) => {
-    send({ type: 'message', jid, content });
-  }, [send]);
-
-  const selectedConversation = conversations.find((c) => c.jid === selectedJid);
-
   return (
     <div className="app">
-      <Sidebar
-        conversations={conversations}
-        selected={selectedJid}
-        onSelect={setSelectedJid}
-      />
-      <main className="chat-area">
-        {selectedConversation ? (
-          <ChatPanel
-            conversation={selectedConversation}
-            onSend={handleSend}
-            typing={typingJids.has(selectedConversation.jid)}
-            onAddMessage={(cb) => { addMessageRef.current = cb; }}
+      <NavBar activeTab={activeTab} onTabChange={handleTabChange} connected={connected} />
+      <div className="app-content">
+        {activeTab === 'chats' && (
+          <ChatsTab
+            send={send}
+            connected={connected}
+            addMessageRef={addMessageRef}
+            refreshRef={refreshChatsRef}
           />
-        ) : (
-          <div className="chat-placeholder">
-            {connected ? 'Select a conversation' : 'Connecting...'}
-          </div>
         )}
-      </main>
+        {activeTab === 'tasks' && <TasksTab refreshRef={refreshTasksRef} />}
+        {activeTab === 'skills' && <SkillsTab />}
+        {activeTab === 'system' && <SystemTab />}
+      </div>
     </div>
   );
 }
