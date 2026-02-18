@@ -5,9 +5,11 @@ import {
   createTask,
   deleteTask,
   getAllChats,
+  getMessagesForChat,
   getMessagesSince,
   getNewMessages,
   getTaskById,
+  setOnMessageStored,
   storeChatMetadata,
   storeMessage,
   updateTask,
@@ -324,5 +326,103 @@ describe('task CRUD', () => {
 
     deleteTask('task-3');
     expect(getTaskById('task-3')).toBeUndefined();
+  });
+});
+
+// --- onMessageStored callback ---
+
+describe('onMessageStored callback', () => {
+  it('calls registered callback when a message is stored', () => {
+    storeChatMetadata('group@g.us', '2024-01-01T00:00:00.000Z');
+
+    const received: any[] = [];
+    setOnMessageStored((msg) => received.push(msg));
+
+    store({
+      id: 'cb-1',
+      chat_jid: 'group@g.us',
+      sender: 'user@s.whatsapp.net',
+      sender_name: 'User',
+      content: 'hello',
+      timestamp: '2024-01-01T00:00:01.000Z',
+    });
+
+    expect(received).toHaveLength(1);
+    expect(received[0].content).toBe('hello');
+
+    // Clean up
+    setOnMessageStored(null);
+  });
+
+  it('works when no callback is registered', () => {
+    setOnMessageStored(null);
+    storeChatMetadata('group@g.us', '2024-01-01T00:00:00.000Z');
+
+    // Should not throw
+    store({
+      id: 'cb-2',
+      chat_jid: 'group@g.us',
+      sender: 'user@s.whatsapp.net',
+      sender_name: 'User',
+      content: 'no callback',
+      timestamp: '2024-01-01T00:00:02.000Z',
+    });
+  });
+});
+
+// --- getMessagesForChat ---
+
+describe('getMessagesForChat', () => {
+  it('returns all messages for a chat in chronological order', () => {
+    storeChatMetadata('group@g.us', '2024-01-01T00:00:00.000Z');
+
+    store({ id: 'm1', chat_jid: 'group@g.us', sender: 'a', sender_name: 'A', content: 'first', timestamp: '2024-01-01T00:00:01.000Z' });
+    store({ id: 'm2', chat_jid: 'group@g.us', sender: 'b', sender_name: 'B', content: 'second', timestamp: '2024-01-01T00:00:02.000Z' });
+    store({ id: 'm3', chat_jid: 'group@g.us', sender: 'a', sender_name: 'A', content: 'third', timestamp: '2024-01-01T00:00:03.000Z' });
+
+    const messages = getMessagesForChat('group@g.us', 50);
+    expect(messages).toHaveLength(3);
+    expect(messages[0].content).toBe('first');
+    expect(messages[2].content).toBe('third');
+  });
+
+  it('includes bot messages (unlike getMessagesSince)', () => {
+    storeChatMetadata('group@g.us', '2024-01-01T00:00:00.000Z');
+
+    storeMessage({
+      id: 'bot-1', chat_jid: 'group@g.us', sender: 'bot', sender_name: 'Bot',
+      content: 'Andy: hello', timestamp: '2024-01-01T00:00:01.000Z',
+      is_from_me: true, is_bot_message: true,
+    });
+    store({ id: 'user-1', chat_jid: 'group@g.us', sender: 'user', sender_name: 'User', content: 'hi', timestamp: '2024-01-01T00:00:02.000Z' });
+
+    const messages = getMessagesForChat('group@g.us', 50);
+    expect(messages).toHaveLength(2);
+  });
+
+  it('respects limit parameter and returns most recent', () => {
+    storeChatMetadata('group@g.us', '2024-01-01T00:00:00.000Z');
+
+    for (let i = 0; i < 10; i++) {
+      store({ id: `m${i}`, chat_jid: 'group@g.us', sender: 'a', sender_name: 'A', content: `msg-${i}`, timestamp: `2024-01-01T00:00:${String(i).padStart(2, '0')}.000Z` });
+    }
+
+    const messages = getMessagesForChat('group@g.us', 3);
+    expect(messages).toHaveLength(3);
+    expect(messages[0].content).toBe('msg-7');
+    expect(messages[2].content).toBe('msg-9');
+  });
+
+  it('supports before cursor for pagination', () => {
+    storeChatMetadata('group@g.us', '2024-01-01T00:00:00.000Z');
+
+    for (let i = 0; i < 5; i++) {
+      store({ id: `m${i}`, chat_jid: 'group@g.us', sender: 'a', sender_name: 'A', content: `msg-${i}`, timestamp: `2024-01-01T00:00:0${i}.000Z` });
+    }
+
+    const messages = getMessagesForChat('group@g.us', 2, '2024-01-01T00:00:03.000Z');
+    expect(messages).toHaveLength(2);
+    expect(messages[0].content).toBe('msg-1');
+    expect(messages[1].content).toBe('msg-2');
   });
 });

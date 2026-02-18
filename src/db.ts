@@ -7,6 +7,12 @@ import { NewMessage, RegisteredGroup, ScheduledTask, TaskRunLog } from './types.
 
 let db: Database.Database;
 
+let onMessageStoredCallback: ((msg: NewMessage) => void) | null = null;
+
+export function setOnMessageStored(cb: ((msg: NewMessage) => void) | null): void {
+  onMessageStoredCallback = cb;
+}
+
 function createSchema(database: Database.Database): void {
   database.exec(`
     CREATE TABLE IF NOT EXISTS chats (
@@ -219,6 +225,7 @@ export function storeMessage(msg: NewMessage): void {
     msg.is_from_me ? 1 : 0,
     msg.is_bot_message ? 1 : 0,
   );
+  onMessageStoredCallback?.(msg);
 }
 
 /**
@@ -276,6 +283,31 @@ export function getNewMessages(
   }
 
   return { messages: rows, newTimestamp };
+}
+
+export function getMessagesForChat(
+  chatJid: string,
+  limit: number,
+  before?: string,
+): NewMessage[] {
+  if (before) {
+    return db
+      .prepare(
+        `SELECT id, chat_jid, sender, sender_name, content, timestamp, is_from_me, is_bot_message
+         FROM messages WHERE chat_jid = ? AND timestamp < ?
+         ORDER BY timestamp DESC LIMIT ?`,
+      )
+      .all(chatJid, before, limit)
+      .reverse() as NewMessage[];
+  }
+  return db
+    .prepare(
+      `SELECT id, chat_jid, sender, sender_name, content, timestamp, is_from_me, is_bot_message
+       FROM messages WHERE chat_jid = ?
+       ORDER BY timestamp DESC LIMIT ?`,
+    )
+    .all(chatJid, limit)
+    .reverse() as NewMessage[];
 }
 
 export function getMessagesSince(
