@@ -102,6 +102,14 @@ function createSchema(database: Database.Database): void {
   } catch {
     /* column already exists */
   }
+
+  // Add display_name and archived columns to chats (migration for existing DBs)
+  try {
+    database.exec(`ALTER TABLE chats ADD COLUMN display_name TEXT`);
+  } catch { /* column already exists */ }
+  try {
+    database.exec(`ALTER TABLE chats ADD COLUMN archived INTEGER DEFAULT 0`);
+  } catch { /* column already exists */ }
 }
 
 export function initDatabase(): void {
@@ -169,7 +177,9 @@ export function updateChatName(chatJid: string, name: string): void {
 export interface ChatInfo {
   jid: string;
   name: string;
+  display_name: string | null;
   last_message_time: string;
+  archived: number;
 }
 
 /**
@@ -179,7 +189,7 @@ export function getAllChats(): ChatInfo[] {
   return db
     .prepare(
       `
-    SELECT jid, name, last_message_time
+    SELECT jid, name, display_name, last_message_time, archived
     FROM chats
     ORDER BY last_message_time DESC
   `,
@@ -308,6 +318,29 @@ export function getMessagesForChat(
     )
     .all(chatJid, limit)
     .reverse() as NewMessage[];
+}
+
+export function renameChat(jid: string, displayName: string): void {
+  db.prepare('UPDATE chats SET display_name = ? WHERE jid = ?').run(displayName, jid);
+}
+
+export function archiveChat(jid: string): void {
+  db.prepare('UPDATE chats SET archived = 1 WHERE jid = ?').run(jid);
+}
+
+export function unarchiveChat(jid: string): void {
+  db.prepare('UPDATE chats SET archived = 0 WHERE jid = ?').run(jid);
+}
+
+export function deleteChat(jid: string): void {
+  db.prepare('DELETE FROM messages WHERE chat_jid = ?').run(jid);
+  db.prepare('DELETE FROM chats WHERE jid = ?').run(jid);
+}
+
+export function getTaskRunLogs(taskId: string, limit = 20): TaskRunLog[] {
+  return db
+    .prepare('SELECT * FROM task_run_logs WHERE task_id = ? ORDER BY run_at DESC LIMIT ?')
+    .all(taskId, limit) as TaskRunLog[];
 }
 
 export function getMessagesSince(
