@@ -20,6 +20,7 @@ export default function App() {
   const addMessageRef = useRef<((msg: Message) => void) | null>(null);
   const refreshChatsRef = useRef<(() => void) | null>(null);
   const refreshTasksRef = useRef<(() => void) | null>(null);
+  const typingRef = useRef<((jid: string, value: boolean) => void) | null>(null);
 
   const handleTabChange = useCallback((tab: Tab) => {
     setActiveTab(tab);
@@ -47,6 +48,9 @@ export default function App() {
     if (msg.type === 'chatUpdate') {
       refreshChatsRef.current?.();
     }
+    if (msg.type === 'typing' && msg.jid !== undefined && msg.value !== undefined) {
+      typingRef.current?.(msg.jid, msg.value);
+    }
   }, []);
 
   const { send, connected } = useWebSocket(handleWsMessage);
@@ -61,6 +65,7 @@ export default function App() {
             connected={connected}
             addMessageRef={addMessageRef}
             refreshRef={refreshChatsRef}
+            typingRef={typingRef}
           />
         )}
         {activeTab === 'tasks' && <TasksTab refreshRef={refreshTasksRef} />}

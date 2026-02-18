@@ -10,9 +10,10 @@ interface Props {
   connected: boolean;
   addMessageRef: MutableRefObject<((msg: Message) => void) | null>;
   refreshRef: MutableRefObject<(() => void) | null>;
+  typingRef: MutableRefObject<((jid: string, value: boolean) => void) | null>;
 }
 
-export default function ChatsTab({ send, connected, addMessageRef, refreshRef }: Props) {
+export default function ChatsTab({ send, connected, addMessageRef, refreshRef, typingRef }: Props) {
   const {
     conversations, refresh, showArchived, setShowArchived,
     createChat, renameChat, archiveChat, deleteChat,
@@ -24,6 +25,18 @@ export default function ChatsTab({ send, connected, addMessageRef, refreshRef }:
   useEffect(() => {
     refreshRef.current = refresh;
   }, [refresh, refreshRef]);
+
+  // Wire typing callback from parent WS handler
+  useEffect(() => {
+    typingRef.current = (jid: string, value: boolean) => {
+      setTypingJids((prev) => {
+        const next = new Set(prev);
+        if (value) next.add(jid);
+        else next.delete(jid);
+        return next;
+      });
+    };
+  }, [typingRef]);
 
   const handleSend = useCallback((jid: string, content: string) => {
     send({ type: 'message', jid, content });
