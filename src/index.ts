@@ -460,6 +460,11 @@ async function main(): Promise<void> {
     onChatMetadata: (chatJid, timestamp) => storeChatMetadata(chatJid, timestamp),
     registeredGroups: () => registeredGroups,
     registerGroup,
+    getSessions: () => sessions,
+    getQueueStatus: () => ({
+      activeContainers: queue.getActiveCount(),
+      groups: queue.getGroupStates(),
+    }),
   });
   channels.push(web);
   await web.connect();

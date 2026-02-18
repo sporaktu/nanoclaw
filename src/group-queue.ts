@@ -281,6 +281,18 @@ export class GroupQueue {
     }
   }
 
+  getActiveCount(): number {
+    return this.activeCount;
+  }
+
+  getGroupStates(): Record<string, { pending: boolean }> {
+    const result: Record<string, { pending: boolean }> = {};
+    for (const [jid, state] of this.groups) {
+      result[jid] = { pending: state.pendingMessages || state.pendingTasks.length > 0 };
+    }
+    return result;
+  }
+
   async shutdown(_gracePeriodMs: number): Promise<void> {
     this.shuttingDown = true;
 
