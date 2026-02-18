@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, type MutableRefObject } from 
 import Sidebar from './Sidebar';
 import ChatPanel from './ChatPanel';
 import { useConversations } from '../hooks/useConversations';
+import { useUnread } from '../hooks/useUnread';
 import type { Message } from '../types';
 import './ChatsTab.css';
 
@@ -20,6 +21,12 @@ export default function ChatsTab({ send, connected, addMessageRef, refreshRef, t
   } = useConversations();
   const [selectedJid, setSelectedJid] = useState<string | null>(null);
   const [typingJids, setTypingJids] = useState<Set<string>>(new Set());
+  const { markRead, getLastReadTimestamp } = useUnread();
+
+  const handleSelect = useCallback((jid: string) => {
+    setSelectedJid(jid);
+    markRead(jid);
+  }, [markRead]);
 
   // Expose refresh to parent for WS updates
   useEffect(() => {
@@ -56,7 +63,8 @@ export default function ChatsTab({ send, connected, addMessageRef, refreshRef, t
       <Sidebar
         conversations={conversations}
         selected={selectedJid}
-        onSelect={setSelectedJid}
+        onSelect={handleSelect}
+        unreadSince={getLastReadTimestamp}
         onNewChat={handleNewChat}
         onRename={renameChat}
         onArchive={archiveChat}

@@ -22,12 +22,13 @@ interface Props {
   onDelete?: (jid: string) => void;
   showArchived?: boolean;
   onToggleArchived?: () => void;
+  unreadSince?: (jid: string) => string;
 }
 
 export default function Sidebar({
   conversations, selected, onSelect,
   onNewChat, onRename, onArchive, onDelete,
-  showArchived, onToggleArchived,
+  showArchived, onToggleArchived, unreadSince,
 }: Props) {
   const [channelFilter, setChannelFilter] = useState('All');
   const [menuJid, setMenuJid] = useState<string | null>(null);
@@ -116,6 +117,9 @@ export default function Sidebar({
                   {c.lastActivity ? new Date(c.lastActivity).toLocaleDateString() : ''}
                 </span>
               </div>
+              {unreadSince && c.lastActivity > unreadSince(c.jid) && c.jid !== selected && (
+                <span className="unread-dot" />
+              )}
               {(onRename || onArchive || onDelete) && (
                 <div style={{ position: 'relative' }}>
                   <span
