@@ -12,9 +12,10 @@ interface Props {
   addMessageRef: MutableRefObject<((msg: Message) => void) | null>;
   refreshRef: MutableRefObject<(() => void) | null>;
   typingRef: MutableRefObject<((jid: string, value: boolean) => void) | null>;
+  ackMessageRef: MutableRefObject<((id: string) => void) | null>;
 }
 
-export default function ChatsTab({ send, connected, addMessageRef, refreshRef, typingRef }: Props) {
+export default function ChatsTab({ send, connected, addMessageRef, refreshRef, typingRef, ackMessageRef }: Props) {
   const {
     conversations, refresh, showArchived, setShowArchived,
     createChat, renameChat, archiveChat, deleteChat,
@@ -22,6 +23,7 @@ export default function ChatsTab({ send, connected, addMessageRef, refreshRef, t
   const [selectedJid, setSelectedJid] = useState<string | null>(null);
   const [typingJids, setTypingJids] = useState<Set<string>>(new Set());
   const { markRead, getLastReadTimestamp } = useUnread();
+  const addOptimisticRef = useRef<((msg: Message) => void) | null>(null);
 
   const handleSelect = useCallback((jid: string) => {
     setSelectedJid(jid);
@@ -46,7 +48,20 @@ export default function ChatsTab({ send, connected, addMessageRef, refreshRef, t
   }, [typingRef]);
 
   const handleSend = useCallback((jid: string, content: string) => {
-    send({ type: 'message', jid, content });
+    const id = `web-${Date.now()}`;
+    const msg: Message = {
+      id,
+      chat_jid: jid,
+      sender: 'web-user',
+      sender_name: 'User',
+      content,
+      timestamp: new Date().toISOString(),
+      is_from_me: false,
+      is_bot_message: false,
+      status: 'sending',
+    };
+    addOptimisticRef.current?.(msg);
+    send({ type: 'message', jid, content, id });
   }, [send]);
 
   const handleNewChat = useCallback(async () => {
@@ -79,6 +94,8 @@ export default function ChatsTab({ send, connected, addMessageRef, refreshRef, t
             onSend={handleSend}
             typing={typingJids.has(selectedConversation.jid)}
             onAddMessage={(cb) => { addMessageRef.current = cb; }}
+            onAddOptimistic={(cb) => { addOptimisticRef.current = cb; }}
+            onAckMessage={(cb) => { ackMessageRef.current = cb; }}
           />
         ) : (
           <div className="chat-placeholder">

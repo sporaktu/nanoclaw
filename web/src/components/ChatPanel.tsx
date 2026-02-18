@@ -26,16 +26,26 @@ interface Props {
   onSend: (jid: string, content: string) => void;
   typing: boolean;
   onAddMessage: (cb: (msg: Message) => void) => void;
+  onAddOptimistic?: (cb: (msg: Message) => void) => void;
+  onAckMessage?: (cb: (id: string) => void) => void;
 }
 
-export default function ChatPanel({ conversation, onSend, typing, onAddMessage }: Props) {
-  const { messages, loading, hasMore, loadMore, addMessage } = useMessages(conversation.jid);
+export default function ChatPanel({ conversation, onSend, typing, onAddMessage, onAddOptimistic, onAckMessage }: Props) {
+  const { messages, loading, hasMore, loadMore, addMessage, addOptimistic, ackMessage } = useMessages(conversation.jid);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Register addMessage with parent
+  // Register callbacks with parent
   useEffect(() => {
     onAddMessage(addMessage);
   }, [addMessage, onAddMessage]);
+
+  useEffect(() => {
+    onAddOptimistic?.(addOptimistic);
+  }, [addOptimistic, onAddOptimistic]);
+
+  useEffect(() => {
+    onAckMessage?.(ackMessage);
+  }, [ackMessage, onAckMessage]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {

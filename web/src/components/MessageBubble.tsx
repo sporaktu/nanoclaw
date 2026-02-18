@@ -22,6 +22,11 @@ export default function MessageBubble({ message }: Props) {
       <div className="message-content">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
       </div>
+      {!isBot && message.status && (
+        <span className="message-status">
+          {message.status === 'sending' ? '○' : '✓'}
+        </span>
+      )}
     </div>
   );
 }

@@ -28,7 +28,22 @@ export function useMessages(jid: string | null) {
 
   const addMessage = useCallback((msg: Message) => {
     if (msg.chat_jid !== jidRef.current) return;
-    setMessages((prev) => [...prev, msg]);
+    setMessages((prev) => {
+      if (prev.some((m) => m.id === msg.id)) {
+        return prev.map((m) => m.id === msg.id ? { ...msg, status: 'sent' as const } : m);
+      }
+      return [...prev, msg];
+    });
+  }, []);
+
+  const addOptimistic = useCallback((msg: Message) => {
+    setMessages((prev) => [...prev, { ...msg, status: 'sending' as const }]);
+  }, []);
+
+  const ackMessage = useCallback((id: string) => {
+    setMessages((prev) =>
+      prev.map((m) => m.id === id ? { ...m, status: 'sent' as const } : m),
+    );
   }, []);
 
   const loadMore = useCallback(async () => {
@@ -42,5 +57,5 @@ export function useMessages(jid: string | null) {
     setHasMore(data.hasMore);
   }, [jid, messages, hasMore]);
 
-  return { messages, loading, hasMore, loadMore, addMessage };
+  return { messages, loading, hasMore, loadMore, addMessage, addOptimistic, ackMessage };
 }

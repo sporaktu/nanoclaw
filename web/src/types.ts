@@ -17,6 +17,7 @@ export interface Message {
   timestamp: string;
   is_from_me?: boolean | number;
   is_bot_message?: boolean | number;
+  status?: 'sending' | 'sent';
 }
 
 export interface ScheduledTask {
@@ -69,10 +70,11 @@ export interface RegisteredGroupInfo {
 }
 
 export interface WsMessage {
-  type: 'newMessage' | 'typing' | 'taskUpdate' | 'taskRun' | 'chatUpdate';
+  type: 'newMessage' | 'typing' | 'taskUpdate' | 'taskRun' | 'chatUpdate' | 'messageAck';
   message?: Message;
   jid?: string;
   value?: boolean;
   task?: ScheduledTask;
   taskRun?: TaskRunLog;
+  messageId?: string;
 }
