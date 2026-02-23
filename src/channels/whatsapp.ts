@@ -80,7 +80,7 @@ export class WhatsAppChannel implements Channel {
 
       if (connection === 'close') {
         this.connected = false;
-        const reason = (lastDisconnect?.error as any)?.output?.statusCode;
+        const reason = (lastDisconnect?.error as { output?: { statusCode?: number } })?.output?.statusCode;
         const shouldReconnect = reason !== DisconnectReason.loggedOut;
         logger.info({ reason, shouldReconnect, queuedMessages: this.outgoingQueue.length }, 'Connection closed');
 
@@ -103,7 +103,9 @@ export class WhatsAppChannel implements Channel {
         logger.info('Connected to WhatsApp');
 
         // Announce availability so WhatsApp relays subsequent presence updates (typing indicators)
-        this.sock.sendPresenceUpdate('available').catch(() => {});
+        this.sock.sendPresenceUpdate('available').catch((err) => {
+          logger.warn({ err }, 'Failed to send presence update');
+        });
 
         // Build LID to phone mapping from auth state for self-chat translation
         if (this.sock.user) {
@@ -158,7 +160,8 @@ export class WhatsAppChannel implements Channel {
         ).toISOString();
 
         // Always notify about chat metadata for group discovery
-        this.opts.onChatMetadata(chatJid, timestamp);
+        const isGroup = chatJid.endsWith('@g.us');
+        this.opts.onChatMetadata(chatJid, timestamp, undefined, 'whatsapp', isGroup);
 
         // Only deliver full message for registered groups
         const groups = this.opts.registeredGroups();
@@ -169,6 +172,10 @@ export class WhatsAppChannel implements Channel {
             msg.message?.imageMessage?.caption ||
             msg.message?.videoMessage?.caption ||
             '';
+
+          // Skip protocol messages with no text content (encryption keys, read receipts, etc.)
+          if (!content) continue;
+
           const sender = msg.key.participant || msg.key.remoteJid || '';
           const senderName = msg.pushName || sender.split('@')[0];
 
