@@ -1,0 +1,5 @@
+[      36ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3421/manifest.json:0
+[      36ms] [ERROR] Manifest fetch from http://localhost:3421/manifest.json failed, code 404 @ http://localhost:3421/:0
+[      71ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3421/manifest.json:0
+[      71ms] [ERROR] Manifest fetch from http://localhost:3421/manifest.json failed, code 404 @ http://localhost:3421/:0
+[      92ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3421/favicon.ico:0

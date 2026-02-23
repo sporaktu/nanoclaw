@@ -379,10 +379,11 @@ export class WebChannel implements Channel {
     }
   }
 
-  private handleClientMessage(_ws: WebSocket, msg: { type: string; jid?: string; content?: string }): void {
+  private handleClientMessage(_ws: WebSocket, msg: { type: string; jid?: string; content?: string; id?: string }): void {
     if (msg.type !== 'message' || !msg.jid || !msg.content) return;
 
     const jid = msg.jid;
+    const id = msg.id || `web-${Date.now()}`;
     const timestamp = new Date().toISOString();
 
     // Auto-register new web conversations so they appear in the sidebar
@@ -393,7 +394,7 @@ export class WebChannel implements Channel {
 
     this.opts.onChatMetadata(jid, timestamp);
     this.opts.onMessage(jid, {
-      id: `web-${Date.now()}`,
+      id,
       chat_jid: jid,
       sender: 'web-user',
       sender_name: 'User',
@@ -402,6 +403,7 @@ export class WebChannel implements Channel {
       is_from_me: false,
       is_bot_message: false,
     });
+    this.broadcast({ type: 'messageAck', messageId: id });
   }
 
   private channelTypeForJid(jid: string): string {
