@@ -5,11 +5,11 @@ import {
   createTask,
   deleteTask,
   getAllChats,
-  getMessagesForChat,
+  getAllRegisteredGroups,
   getMessagesSince,
   getNewMessages,
   getTaskById,
-  setOnMessageStored,
+  setRegisteredGroup,
   storeChatMetadata,
   storeMessage,
   updateTask,
@@ -55,7 +55,11 @@ describe('storeMessage', () => {
       timestamp: '2024-01-01T00:00:01.000Z',
     });
 
-    const messages = getMessagesSince('group@g.us', '2024-01-01T00:00:00.000Z', 'Andy');
+    const messages = getMessagesSince(
+      'group@g.us',
+      '2024-01-01T00:00:00.000Z',
+      'Andy',
+    );
     expect(messages).toHaveLength(1);
     expect(messages[0].id).toBe('msg-1');
     expect(messages[0].sender).toBe('123@s.whatsapp.net');
@@ -75,7 +79,11 @@ describe('storeMessage', () => {
       timestamp: '2024-01-01T00:00:04.000Z',
     });
 
-    const messages = getMessagesSince('group@g.us', '2024-01-01T00:00:00.000Z', 'Andy');
+    const messages = getMessagesSince(
+      'group@g.us',
+      '2024-01-01T00:00:00.000Z',
+      'Andy',
+    );
     expect(messages).toHaveLength(0);
   });
 
@@ -93,7 +101,11 @@ describe('storeMessage', () => {
     });
 
     // Message is stored (we can retrieve it — is_from_me doesn't affect retrieval)
-    const messages = getMessagesSince('group@g.us', '2024-01-01T00:00:00.000Z', 'Andy');
+    const messages = getMessagesSince(
+      'group@g.us',
+      '2024-01-01T00:00:00.000Z',
+      'Andy',
+    );
     expect(messages).toHaveLength(1);
   });
 
@@ -118,7 +130,11 @@ describe('storeMessage', () => {
       timestamp: '2024-01-01T00:00:01.000Z',
     });
 
-    const messages = getMessagesSince('group@g.us', '2024-01-01T00:00:00.000Z', 'Andy');
+    const messages = getMessagesSince(
+      'group@g.us',
+      '2024-01-01T00:00:00.000Z',
+      'Andy',
+    );
     expect(messages).toHaveLength(1);
     expect(messages[0].content).toBe('updated');
   });
@@ -131,33 +147,57 @@ describe('getMessagesSince', () => {
     storeChatMetadata('group@g.us', '2024-01-01T00:00:00.000Z');
 
     store({
-      id: 'm1', chat_jid: 'group@g.us', sender: 'Alice@s.whatsapp.net',
-      sender_name: 'Alice', content: 'first', timestamp: '2024-01-01T00:00:01.000Z',
+      id: 'm1',
+      chat_jid: 'group@g.us',
+      sender: 'Alice@s.whatsapp.net',
+      sender_name: 'Alice',
+      content: 'first',
+      timestamp: '2024-01-01T00:00:01.000Z',
     });
     store({
-      id: 'm2', chat_jid: 'group@g.us', sender: 'Bob@s.whatsapp.net',
-      sender_name: 'Bob', content: 'second', timestamp: '2024-01-01T00:00:02.000Z',
+      id: 'm2',
+      chat_jid: 'group@g.us',
+      sender: 'Bob@s.whatsapp.net',
+      sender_name: 'Bob',
+      content: 'second',
+      timestamp: '2024-01-01T00:00:02.000Z',
     });
     storeMessage({
-      id: 'm3', chat_jid: 'group@g.us', sender: 'Bot@s.whatsapp.net',
-      sender_name: 'Bot', content: 'bot reply', timestamp: '2024-01-01T00:00:03.000Z',
+      id: 'm3',
+      chat_jid: 'group@g.us',
+      sender: 'Bot@s.whatsapp.net',
+      sender_name: 'Bot',
+      content: 'bot reply',
+      timestamp: '2024-01-01T00:00:03.000Z',
       is_bot_message: true,
     });
     store({
-      id: 'm4', chat_jid: 'group@g.us', sender: 'Carol@s.whatsapp.net',
-      sender_name: 'Carol', content: 'third', timestamp: '2024-01-01T00:00:04.000Z',
+      id: 'm4',
+      chat_jid: 'group@g.us',
+      sender: 'Carol@s.whatsapp.net',
+      sender_name: 'Carol',
+      content: 'third',
+      timestamp: '2024-01-01T00:00:04.000Z',
     });
   });
 
   it('returns messages after the given timestamp', () => {
-    const msgs = getMessagesSince('group@g.us', '2024-01-01T00:00:02.000Z', 'Andy');
+    const msgs = getMessagesSince(
+      'group@g.us',
+      '2024-01-01T00:00:02.000Z',
+      'Andy',
+    );
     // Should exclude m1, m2 (before/at timestamp), m3 (bot message)
     expect(msgs).toHaveLength(1);
     expect(msgs[0].content).toBe('third');
   });
 
   it('excludes bot messages via is_bot_message flag', () => {
-    const msgs = getMessagesSince('group@g.us', '2024-01-01T00:00:00.000Z', 'Andy');
+    const msgs = getMessagesSince(
+      'group@g.us',
+      '2024-01-01T00:00:00.000Z',
+      'Andy',
+    );
     const botMsgs = msgs.filter((m) => m.content === 'bot reply');
     expect(botMsgs).toHaveLength(0);
   });
@@ -171,11 +211,18 @@ describe('getMessagesSince', () => {
   it('filters pre-migration bot messages via content prefix backstop', () => {
     // Simulate a message written before migration: has prefix but is_bot_message = 0
     store({
-      id: 'm5', chat_jid: 'group@g.us', sender: 'Bot@s.whatsapp.net',
-      sender_name: 'Bot', content: 'Andy: old bot reply',
+      id: 'm5',
+      chat_jid: 'group@g.us',
+      sender: 'Bot@s.whatsapp.net',
+      sender_name: 'Bot',
+      content: 'Andy: old bot reply',
       timestamp: '2024-01-01T00:00:05.000Z',
     });
-    const msgs = getMessagesSince('group@g.us', '2024-01-01T00:00:04.000Z', 'Andy');
+    const msgs = getMessagesSince(
+      'group@g.us',
+      '2024-01-01T00:00:04.000Z',
+      'Andy',
+    );
     expect(msgs).toHaveLength(0);
   });
 });
@@ -188,21 +235,37 @@ describe('getNewMessages', () => {
     storeChatMetadata('group2@g.us', '2024-01-01T00:00:00.000Z');
 
     store({
-      id: 'a1', chat_jid: 'group1@g.us', sender: 'user@s.whatsapp.net',
-      sender_name: 'User', content: 'g1 msg1', timestamp: '2024-01-01T00:00:01.000Z',
+      id: 'a1',
+      chat_jid: 'group1@g.us',
+      sender: 'user@s.whatsapp.net',
+      sender_name: 'User',
+      content: 'g1 msg1',
+      timestamp: '2024-01-01T00:00:01.000Z',
     });
     store({
-      id: 'a2', chat_jid: 'group2@g.us', sender: 'user@s.whatsapp.net',
-      sender_name: 'User', content: 'g2 msg1', timestamp: '2024-01-01T00:00:02.000Z',
+      id: 'a2',
+      chat_jid: 'group2@g.us',
+      sender: 'user@s.whatsapp.net',
+      sender_name: 'User',
+      content: 'g2 msg1',
+      timestamp: '2024-01-01T00:00:02.000Z',
     });
     storeMessage({
-      id: 'a3', chat_jid: 'group1@g.us', sender: 'user@s.whatsapp.net',
-      sender_name: 'User', content: 'bot reply', timestamp: '2024-01-01T00:00:03.000Z',
+      id: 'a3',
+      chat_jid: 'group1@g.us',
+      sender: 'user@s.whatsapp.net',
+      sender_name: 'User',
+      content: 'bot reply',
+      timestamp: '2024-01-01T00:00:03.000Z',
       is_bot_message: true,
     });
     store({
-      id: 'a4', chat_jid: 'group1@g.us', sender: 'user@s.whatsapp.net',
-      sender_name: 'User', content: 'g1 msg2', timestamp: '2024-01-01T00:00:04.000Z',
+      id: 'a4',
+      chat_jid: 'group1@g.us',
+      sender: 'user@s.whatsapp.net',
+      sender_name: 'User',
+      content: 'g1 msg2',
+      timestamp: '2024-01-01T00:00:04.000Z',
     });
   });
 
@@ -328,100 +391,94 @@ describe('task CRUD', () => {
   });
 });
 
-// --- onMessageStored callback ---
+// --- LIMIT behavior ---
 
-describe('onMessageStored callback', () => {
-  it('calls registered callback when a message is stored', () => {
+describe('message query LIMIT', () => {
+  beforeEach(() => {
     storeChatMetadata('group@g.us', '2024-01-01T00:00:00.000Z');
 
-    const received: any[] = [];
-    setOnMessageStored((msg) => received.push(msg));
-
-    store({
-      id: 'cb-1',
-      chat_jid: 'group@g.us',
-      sender: 'user@s.whatsapp.net',
-      sender_name: 'User',
-      content: 'hello',
-      timestamp: '2024-01-01T00:00:01.000Z',
-    });
-
-    expect(received).toHaveLength(1);
-    expect(received[0].content).toBe('hello');
-
-    // Clean up
-    setOnMessageStored(null);
+    for (let i = 1; i <= 10; i++) {
+      store({
+        id: `lim-${i}`,
+        chat_jid: 'group@g.us',
+        sender: 'user@s.whatsapp.net',
+        sender_name: 'User',
+        content: `message ${i}`,
+        timestamp: `2024-01-01T00:00:${String(i).padStart(2, '0')}.000Z`,
+      });
+    }
   });
 
-  it('works when no callback is registered', () => {
-    setOnMessageStored(null);
-    storeChatMetadata('group@g.us', '2024-01-01T00:00:00.000Z');
+  it('getNewMessages caps to limit and returns most recent in chronological order', () => {
+    const { messages, newTimestamp } = getNewMessages(
+      ['group@g.us'],
+      '2024-01-01T00:00:00.000Z',
+      'Andy',
+      3,
+    );
+    expect(messages).toHaveLength(3);
+    expect(messages[0].content).toBe('message 8');
+    expect(messages[2].content).toBe('message 10');
+    // Chronological order preserved
+    expect(messages[1].timestamp > messages[0].timestamp).toBe(true);
+    // newTimestamp reflects latest returned row
+    expect(newTimestamp).toBe('2024-01-01T00:00:10.000Z');
+  });
 
-    // Should not throw
-    store({
-      id: 'cb-2',
-      chat_jid: 'group@g.us',
-      sender: 'user@s.whatsapp.net',
-      sender_name: 'User',
-      content: 'no callback',
-      timestamp: '2024-01-01T00:00:02.000Z',
-    });
+  it('getMessagesSince caps to limit and returns most recent in chronological order', () => {
+    const messages = getMessagesSince(
+      'group@g.us',
+      '2024-01-01T00:00:00.000Z',
+      'Andy',
+      3,
+    );
+    expect(messages).toHaveLength(3);
+    expect(messages[0].content).toBe('message 8');
+    expect(messages[2].content).toBe('message 10');
+    expect(messages[1].timestamp > messages[0].timestamp).toBe(true);
+  });
+
+  it('returns all messages when count is under the limit', () => {
+    const { messages } = getNewMessages(
+      ['group@g.us'],
+      '2024-01-01T00:00:00.000Z',
+      'Andy',
+      50,
+    );
+    expect(messages).toHaveLength(10);
   });
 });
 
-// --- getMessagesForChat ---
+// --- RegisteredGroup isMain round-trip ---
 
-describe('getMessagesForChat', () => {
-  it('returns all messages for a chat in chronological order', () => {
-    storeChatMetadata('group@g.us', '2024-01-01T00:00:00.000Z');
-
-    store({ id: 'm1', chat_jid: 'group@g.us', sender: 'a', sender_name: 'A', content: 'first', timestamp: '2024-01-01T00:00:01.000Z' });
-    store({ id: 'm2', chat_jid: 'group@g.us', sender: 'b', sender_name: 'B', content: 'second', timestamp: '2024-01-01T00:00:02.000Z' });
-    store({ id: 'm3', chat_jid: 'group@g.us', sender: 'a', sender_name: 'A', content: 'third', timestamp: '2024-01-01T00:00:03.000Z' });
-
-    const messages = getMessagesForChat('group@g.us', 50);
-    expect(messages).toHaveLength(3);
-    expect(messages[0].content).toBe('first');
-    expect(messages[2].content).toBe('third');
-  });
-
-  it('includes bot messages (unlike getMessagesSince)', () => {
-    storeChatMetadata('group@g.us', '2024-01-01T00:00:00.000Z');
-
-    storeMessage({
-      id: 'bot-1', chat_jid: 'group@g.us', sender: 'bot', sender_name: 'Bot',
-      content: 'Andy: hello', timestamp: '2024-01-01T00:00:01.000Z',
-      is_from_me: true, is_bot_message: true,
+describe('registered group isMain', () => {
+  it('persists isMain=true through set/get round-trip', () => {
+    setRegisteredGroup('main@s.whatsapp.net', {
+      name: 'Main Chat',
+      folder: 'whatsapp_main',
+      trigger: '@Andy',
+      added_at: '2024-01-01T00:00:00.000Z',
+      isMain: true,
     });
-    store({ id: 'user-1', chat_jid: 'group@g.us', sender: 'user', sender_name: 'User', content: 'hi', timestamp: '2024-01-01T00:00:02.000Z' });
 
-    const messages = getMessagesForChat('group@g.us', 50);
-    expect(messages).toHaveLength(2);
+    const groups = getAllRegisteredGroups();
+    const group = groups['main@s.whatsapp.net'];
+    expect(group).toBeDefined();
+    expect(group.isMain).toBe(true);
+    expect(group.folder).toBe('whatsapp_main');
   });
 
-  it('respects limit parameter and returns most recent', () => {
-    storeChatMetadata('group@g.us', '2024-01-01T00:00:00.000Z');
+  it('omits isMain for non-main groups', () => {
+    setRegisteredGroup('group@g.us', {
+      name: 'Family Chat',
+      folder: 'whatsapp_family-chat',
+      trigger: '@Andy',
+      added_at: '2024-01-01T00:00:00.000Z',
+    });
 
-    for (let i = 0; i < 10; i++) {
-      store({ id: `m${i}`, chat_jid: 'group@g.us', sender: 'a', sender_name: 'A', content: `msg-${i}`, timestamp: `2024-01-01T00:00:${String(i).padStart(2, '0')}.000Z` });
-    }
-
-    const messages = getMessagesForChat('group@g.us', 3);
-    expect(messages).toHaveLength(3);
-    expect(messages[0].content).toBe('msg-7');
-    expect(messages[2].content).toBe('msg-9');
-  });
-
-  it('supports before cursor for pagination', () => {
-    storeChatMetadata('group@g.us', '2024-01-01T00:00:00.000Z');
-
-    for (let i = 0; i < 5; i++) {
-      store({ id: `m${i}`, chat_jid: 'group@g.us', sender: 'a', sender_name: 'A', content: `msg-${i}`, timestamp: `2024-01-01T00:00:0${i}.000Z` });
-    }
-
-    const messages = getMessagesForChat('group@g.us', 2, '2024-01-01T00:00:03.000Z');
-    expect(messages).toHaveLength(2);
-    expect(messages[0].content).toBe('msg-1');
-    expect(messages[1].content).toBe('msg-2');
+    const groups = getAllRegisteredGroups();
+    const group = groups['group@g.us'];
+    expect(group).toBeDefined();
+    expect(group.isMain).toBeUndefined();
   });
 });
