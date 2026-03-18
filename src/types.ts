@@ -77,6 +77,46 @@ export interface TaskRunLog {
   error: string | null;
 }
 
+// --- Audit types ---
+
+export const AUDIT_EVENT_TYPES = [
+  'MESSAGE_RECEIVED',
+  'MESSAGE_SENT',
+  'CONTAINER_STARTED',
+  'CONTAINER_STOPPED',
+  'TOOL_INVOKED',
+  'TASK_EXECUTED',
+  'TASK_CREATED',
+  'TASK_DELETED',
+  'GROUP_REGISTERED',
+  'MOUNT_REQUESTED',
+  'MOUNT_DENIED',
+  'AUTH_ATTEMPT',
+  'CONFIG_CHANGED',
+] as const;
+
+export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
+
+export interface AuditEntry {
+  timestamp: string;
+  event_type: AuditEventType;
+  group_folder?: string;
+  user?: string;
+  action: string;
+  details?: Record<string, unknown>;
+  container_id?: string;
+  duration_ms?: number;
+  success: boolean;
+}
+
+export interface AuditQueryFilters {
+  event_type?: AuditEventType;
+  group_folder?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+}
+
 // --- Channel abstraction ---
 
 export interface Channel {

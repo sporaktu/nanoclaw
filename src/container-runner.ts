@@ -28,6 +28,7 @@ import {
 import { detectAuthMode } from './credential-proxy.js';
 import { validateAdditionalMounts } from './mount-security.js';
 import { RegisteredGroup } from './types.js';
+import { audit } from './audit.js';
 
 // Sentinel markers for robust output parsing (must match agent-runner)
 const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
@@ -313,6 +314,19 @@ export async function runContainerAgent(
 
     onProcess(container, containerName);
 
+    audit({
+      event_type: 'CONTAINER_STARTED',
+      group_folder: group.folder,
+      action: 'Container agent spawned',
+      container_id: containerName,
+      details: {
+        isMain: input.isMain,
+        isScheduledTask: input.isScheduledTask ?? false,
+        mountCount: mounts.length,
+      },
+      success: true,
+    });
+
     let stdout = '';
     let stderr = '';
     let stdoutTruncated = false;
@@ -435,6 +449,20 @@ export async function runContainerAgent(
     container.on('close', (code) => {
       clearTimeout(timeout);
       const duration = Date.now() - startTime;
+
+      audit({
+        event_type: 'CONTAINER_STOPPED',
+        group_folder: group.folder,
+        action: timedOut ? 'Container timed out' : 'Container exited',
+        container_id: containerName,
+        duration_ms: duration,
+        details: {
+          exitCode: code,
+          timedOut,
+          hadStreamingOutput,
+        },
+        success: !timedOut ? code === 0 : hadStreamingOutput,
+      });
 
       if (timedOut) {
         const ts = new Date().toISOString().replace(/[:.]/g, '-');

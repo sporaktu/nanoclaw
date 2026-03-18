@@ -20,6 +20,7 @@ import { GroupQueue } from './group-queue.js';
 import { resolveGroupFolderPath } from './group-folder.js';
 import { logger } from './logger.js';
 import { RegisteredGroup, ScheduledTask } from './types.js';
+import { audit } from './audit.js';
 
 /**
  * Compute the next run time for a recurring task, anchored to the
@@ -227,6 +228,19 @@ async function runTask(
     status: error ? 'error' : 'success',
     result,
     error,
+  });
+
+  audit({
+    event_type: 'TASK_EXECUTED',
+    group_folder: task.group_folder,
+    action: 'Scheduled task executed',
+    details: {
+      task_id: task.id,
+      schedule_type: task.schedule_type,
+      ...(error ? { error } : {}),
+    },
+    duration_ms: durationMs,
+    success: !error,
   });
 
   const nextRun = computeNextRun(task);

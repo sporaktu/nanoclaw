@@ -6,6 +6,8 @@ import { ASSISTANT_NAME, DATA_DIR, STORE_DIR } from './config.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
 import {
+  AuditEntry,
+  AuditQueryFilters,
   NewMessage,
   RegisteredGroup,
   ScheduledTask,
@@ -16,7 +18,9 @@ let db: Database.Database;
 
 let onMessageStoredCallback: ((msg: NewMessage) => void) | null = null;
 
-export function setOnMessageStored(cb: ((msg: NewMessage) => void) | null): void {
+export function setOnMessageStored(
+  cb: ((msg: NewMessage) => void) | null,
+): void {
   onMessageStoredCallback = cb;
 }
 
@@ -88,6 +92,21 @@ function createSchema(database: Database.Database): void {
       container_config TEXT,
       requires_trigger INTEGER DEFAULT 1
     );
+
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      group_folder TEXT,
+      user TEXT,
+      action TEXT NOT NULL,
+      details TEXT,
+      container_id TEXT,
+      duration_ms INTEGER,
+      success INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_event_type ON audit_log(event_type);
+    CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);
   `);
 
   // Add context_mode column if it doesn't exist (migration for existing DBs)
@@ -128,10 +147,14 @@ function createSchema(database: Database.Database): void {
   // Add display_name and archived columns to chats (migration for existing DBs)
   try {
     database.exec(`ALTER TABLE chats ADD COLUMN display_name TEXT`);
-  } catch { /* column already exists */ }
+  } catch {
+    /* column already exists */
+  }
   try {
     database.exec(`ALTER TABLE chats ADD COLUMN archived INTEGER DEFAULT 0`);
-  } catch { /* column already exists */ }
+  } catch {
+    /* column already exists */
+  }
 
   // Add channel and is_group columns if they don't exist (migration for existing DBs)
   try {
@@ -381,7 +404,10 @@ export function getMessagesForChat(
 }
 
 export function renameChat(jid: string, displayName: string): void {
-  db.prepare('UPDATE chats SET display_name = ? WHERE jid = ?').run(displayName, jid);
+  db.prepare('UPDATE chats SET display_name = ? WHERE jid = ?').run(
+    displayName,
+    jid,
+  );
 }
 
 export function archiveChat(jid: string): void {
@@ -399,7 +425,9 @@ export function deleteChat(jid: string): void {
 
 export function getTaskRunLogs(taskId: string, limit = 20): TaskRunLog[] {
   return db
-    .prepare('SELECT * FROM task_run_logs WHERE task_id = ? ORDER BY run_at DESC LIMIT ?')
+    .prepare(
+      'SELECT * FROM task_run_logs WHERE task_id = ? ORDER BY run_at DESC LIMIT ?',
+    )
     .all(taskId, limit) as TaskRunLog[];
 }
 
@@ -697,6 +725,80 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
     };
   }
   return result;
+}
+
+// --- Audit log accessors ---
+
+export function insertAuditLog(entry: AuditEntry): void {
+  db.prepare(
+    `INSERT INTO audit_log (timestamp, event_type, group_folder, user, action, details, container_id, duration_ms, success)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    entry.timestamp,
+    entry.event_type,
+    entry.group_folder ?? null,
+    entry.user ?? null,
+    entry.action,
+    entry.details ? JSON.stringify(entry.details) : null,
+    entry.container_id ?? null,
+    entry.duration_ms ?? null,
+    entry.success ? 1 : 0,
+  );
+}
+
+export function queryAuditLogs(filters: AuditQueryFilters = {}): AuditEntry[] {
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+
+  if (filters.event_type) {
+    conditions.push('event_type = ?');
+    values.push(filters.event_type);
+  }
+  if (filters.group_folder) {
+    conditions.push('group_folder = ?');
+    values.push(filters.group_folder);
+  }
+  if (filters.from) {
+    conditions.push('timestamp >= ?');
+    values.push(filters.from);
+  }
+  if (filters.to) {
+    conditions.push('timestamp <= ?');
+    values.push(filters.to);
+  }
+
+  const where =
+    conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const limit = filters.limit ?? 100;
+  values.push(limit);
+
+  const rows = db
+    .prepare(
+      `SELECT * FROM audit_log ${where} ORDER BY timestamp DESC LIMIT ?`,
+    )
+    .all(...values) as Array<{
+    timestamp: string;
+    event_type: string;
+    group_folder: string | null;
+    user: string | null;
+    action: string;
+    details: string | null;
+    container_id: string | null;
+    duration_ms: number | null;
+    success: number;
+  }>;
+
+  return rows.map((row) => ({
+    timestamp: row.timestamp,
+    event_type: row.event_type as AuditEntry['event_type'],
+    ...(row.group_folder !== null && { group_folder: row.group_folder }),
+    ...(row.user !== null && { user: row.user }),
+    action: row.action,
+    ...(row.details !== null && { details: JSON.parse(row.details) }),
+    ...(row.container_id !== null && { container_id: row.container_id }),
+    ...(row.duration_ms !== null && { duration_ms: row.duration_ms }),
+    success: row.success === 1,
+  }));
 }
 
 // --- JSON migration ---

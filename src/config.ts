@@ -27,6 +27,14 @@ export const MOUNT_ALLOWLIST_PATH = path.join(
   'nanoclaw',
   'mount-allowlist.json',
 );
+// Audit log stored outside project root so container agents can never read it.
+// (~/.config/nanoclaw is not mounted into any container.)
+export const AUDIT_LOG_PATH = path.join(
+  HOME_DIR,
+  '.config',
+  'nanoclaw',
+  'audit.jsonl',
+);
 export const SENDER_ALLOWLIST_PATH = path.join(
   HOME_DIR,
   '.config',

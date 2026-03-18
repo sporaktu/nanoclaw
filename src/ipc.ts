@@ -9,6 +9,7 @@ import { createTask, deleteTask, getTaskById, updateTask } from './db.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
 import { RegisteredGroup } from './types.js';
+import { audit } from './audit.js';
 
 export interface IpcDeps {
   sendMessage: (jid: string, text: string) => Promise<void>;
@@ -271,6 +272,18 @@ export async function processTaskIpc(
           { taskId, sourceGroup, targetFolder, contextMode },
           'Task created via IPC',
         );
+        audit({
+          event_type: 'TASK_CREATED',
+          group_folder: targetFolder,
+          user: sourceGroup,
+          action: 'Task created via IPC',
+          details: {
+            task_id: taskId,
+            schedule_type: scheduleType,
+            context_mode: contextMode,
+          },
+          success: true,
+        });
         deps.onTasksChanged();
       }
       break;
@@ -322,6 +335,14 @@ export async function processTaskIpc(
             { taskId: data.taskId, sourceGroup },
             'Task cancelled via IPC',
           );
+          audit({
+            event_type: 'TASK_DELETED',
+            group_folder: task.group_folder,
+            user: sourceGroup,
+            action: 'Task cancelled via IPC',
+            details: { task_id: data.taskId },
+            success: true,
+          });
           deps.onTasksChanged();
         } else {
           logger.warn(

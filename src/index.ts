@@ -60,6 +60,7 @@ import {
 import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { logger } from './logger.js';
+import { audit, truncateContent } from './audit.js';
 
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
@@ -117,6 +118,14 @@ function registerGroup(jid: string, group: RegisteredGroup): void {
     { jid, name: group.name, folder: group.folder },
     'Group registered',
   );
+
+  audit({
+    event_type: 'GROUP_REGISTERED',
+    group_folder: group.folder,
+    action: 'Group registered',
+    details: { jid, name: group.name },
+    success: true,
+  });
 }
 
 /**
@@ -225,6 +234,13 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       if (text) {
         await channel.sendMessage(chatJid, text);
         outputSentToUser = true;
+        audit({
+          event_type: 'MESSAGE_SENT',
+          group_folder: group.folder,
+          action: 'Agent response sent',
+          details: { chat_jid: chatJid, preview: truncateContent(text) },
+          success: true,
+        });
       }
       // Only reset idle timer on actual results, not session-update markers (result: null)
       resetIdleTimer();
@@ -561,9 +577,28 @@ async function main(): Promise<void> {
               'sender-allowlist: dropping message (drop mode)',
             );
           }
+          audit({
+            event_type: 'AUTH_ATTEMPT',
+            group_folder: registeredGroups[chatJid]?.folder,
+            user: msg.sender,
+            action: 'Message dropped — sender not in allowlist',
+            details: { chat_jid: chatJid },
+            success: false,
+          });
           return;
         }
       }
+      audit({
+        event_type: 'MESSAGE_RECEIVED',
+        group_folder: registeredGroups[chatJid]?.folder,
+        user: msg.sender,
+        action: 'Message received',
+        details: {
+          chat_jid: chatJid,
+          preview: truncateContent(msg.content),
+        },
+        success: true,
+      });
       storeMessage(msg);
     },
     onChatMetadata: (

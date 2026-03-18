@@ -1,0 +1,27 @@
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nanoclaw-dashboard:latest
+    container_name: nanoclaw-dashboard
+    ports:
+      - "3001:3030"
+    volumes:
+      # NanoClaw data directory mounted read-only
+      - ../data:/data:ro
+      # Container skills directory mounted read-only (optional — skip if not present)
+      - ../container/skills:/skills:ro
+    environment:
+      - NODE_ENV=production
+      - PORT=3030
+      - DB_PATH=/data/messages.db
+      - SKILLS_DIR=/skills
+      - POLL_INTERVAL_MS=2000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3030/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3

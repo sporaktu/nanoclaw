@@ -16,7 +16,9 @@ function startSpinner(): void {
   if (spinnerTimer) return;
   spinnerFrame = 0;
   spinnerTimer = setInterval(() => {
-    process.stdout.write(`\r${SPINNER_FRAMES[spinnerFrame++ % SPINNER_FRAMES.length]} Thinking...`);
+    process.stdout.write(
+      `\r${SPINNER_FRAMES[spinnerFrame++ % SPINNER_FRAMES.length]} Thinking...`,
+    );
   }, 80);
 }
 
@@ -92,7 +94,11 @@ function connect(): void {
   });
 }
 
-function handleServerMessage(msg: { type: string; content?: string; value?: boolean }): void {
+function handleServerMessage(msg: {
+  type: string;
+  content?: string;
+  value?: boolean;
+}): void {
   switch (msg.type) {
     case 'text':
       stopSpinner();

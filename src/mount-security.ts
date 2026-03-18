@@ -12,6 +12,7 @@ import path from 'path';
 import pino from 'pino';
 
 import { MOUNT_ALLOWLIST_PATH } from './config.js';
+import { audit } from './audit.js';
 import { AdditionalMount, AllowedRoot, MountAllowlist } from './types.js';
 
 const logger = pino({
@@ -368,6 +369,17 @@ export function validateAdditionalMounts(
         },
         'Mount validated successfully',
       );
+      audit({
+        event_type: 'MOUNT_REQUESTED',
+        group_folder: groupName,
+        action: 'Additional mount approved',
+        details: {
+          hostPath: result.realHostPath,
+          containerPath: `/workspace/extra/${result.resolvedContainerPath}`,
+          readonly: result.effectiveReadonly,
+        },
+        success: true,
+      });
     } else {
       logger.warn(
         {
@@ -378,6 +390,16 @@ export function validateAdditionalMounts(
         },
         'Additional mount REJECTED',
       );
+      audit({
+        event_type: 'MOUNT_DENIED',
+        group_folder: groupName,
+        action: 'Additional mount rejected',
+        details: {
+          requestedPath: mount.hostPath,
+          reason: result.reason,
+        },
+        success: false,
+      });
     }
   }
 

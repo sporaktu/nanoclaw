@@ -351,7 +351,9 @@ export class GroupQueue {
   getGroupStates(): Record<string, { pending: boolean }> {
     const result: Record<string, { pending: boolean }> = {};
     for (const [jid, state] of this.groups) {
-      result[jid] = { pending: state.pendingMessages || state.pendingTasks.length > 0 };
+      result[jid] = {
+        pending: state.pendingMessages || state.pendingTasks.length > 0,
+      };
     }
     return result;
   }
